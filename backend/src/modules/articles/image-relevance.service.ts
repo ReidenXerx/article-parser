@@ -37,6 +37,23 @@ export class ImageRelevanceService {
     return process.env.IMAGE_RELEVANCE_CHECK_ENABLED === 'true';
   }
 
+  /**
+   * Vision model used for the relevance check.
+   *
+   * Decoupled from `OPENAI_MODEL_MINI` because the primary mini model
+   * (gpt-5-mini, the current default) is a reasoning model that does NOT
+   * accept vision inputs. Defaulting to `gpt-4o-mini` keeps the feature
+   * working out of the box when an editor flips the enable flag,
+   * without forcing them to also know which mini models support images.
+   *
+   * Override via `IMAGE_RELEVANCE_MODEL` if a newer vision-capable mini
+   * model ships and you want to point this feature at it without
+   * affecting the rest of the pipeline.
+   */
+  private getVisionModel(): string {
+    return process.env.IMAGE_RELEVANCE_MODEL || 'gpt-4o-mini';
+  }
+
   async checkBatch(images: ExtractedImage[]): Promise<ImageRelevanceVerdict[]> {
     if (!this.isEnabled()) return [];
 
@@ -105,7 +122,7 @@ export class ImageRelevanceService {
           relevant?: boolean;
           reason?: string;
         }>(prompt, url, {
-          model: this.openAIPromptService.miniModel,
+          model: this.getVisionModel(),
           temperature: 0,
           imageDetail: 'low',
           moduleLabel: 'image-relevance',

@@ -178,6 +178,6 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design-decision walkthrough a
 
 ## Stretch feature: image-relevance vision check
 
-Set `IMAGE_RELEVANCE_CHECK_ENABLED=true` in `backend/.env` to opt into a per-image vision check. For each publicly-accessible image, the configured mini model receives the image + surrounding section text and returns `relevant: true | false`. Surfaces as informational badges in the audit panel; not (yet) wired into the rule layer. ~$0.0001-0.0003 per image.
+Set `IMAGE_RELEVANCE_CHECK_ENABLED=true` in `backend/.env` to opt into a per-image vision check. For each publicly-accessible image, `IMAGE_RELEVANCE_MODEL` (defaults to `gpt-4o-mini`) receives the image + surrounding section text and returns `relevant: true | false`. Surfaces as informational badges in the audit panel; not (yet) wired into the rule layer. ~$0.0001-0.0003 per image.
 
-> ⚠️ **Vision support.** `gpt-5-mini` (the default mini model) **does not currently support vision inputs** — if you enable the relevance check, point it at a vision-capable model via `OPENAI_MODEL_MINI=gpt-4o-mini` (or any other vision-enabled model). The deterministic + text-only AI second-opinion path is unaffected.
+> The vision model is **decoupled** from `OPENAI_MODEL_MINI` because the default mini (`gpt-5-mini`) is a reasoning model that doesn't accept vision inputs. The vision feature picks its own model so flipping the enable flag Just Works — no editor needs to remember which mini supports images.
