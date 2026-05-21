@@ -70,6 +70,14 @@ Prints the per-article report; writes the cleaned WordPress HTML to `logs/ingest
    - `not-drive` &mdash; URL didn't match any known Drive pattern.
    - `unknown` &mdash; network error or unexpected status (fail-open).
 
+   In parallel, **GET-probe** every body link to catch broken / soft-404 URLs (Range-limited to 10KB for body inspection):
+   - `ok` &mdash; 2xx + no 404 markers in title / first H1.
+   - `hard-4xx` &mdash; server returned 4xx (most common cause: removed product page).
+   - `soft-404` &mdash; 200 OK but redirected to homepage / known-404 path, OR title / H1 contains 404 phrasings (Shopify, WP, Wix patterns covered).
+   - `hard-5xx` &mdash; server error (lighter weight; often transient).
+   - `unreachable` &mdash; network error / DNS / SSL (lighter weight; fail-open).
+   - `redirect` &mdash; followed a redirect that resolved OK (informational only).
+
 4. **Score** the article through the weighted rule layer.
    - Each rule contributes a signed integer hit.
    - Sum &ge; `acceptThreshold` &rarr; **accept**. Sum &le; `rejectThreshold` &rarr; **reject**. Otherwise &rarr; **escalate**.
@@ -96,13 +104,17 @@ A real, unaltered run against the brief's test document:
 | `image.drivePrivate` | -4 | 3 Drive image(s) not publicly accessible |
 | `image.altCoverageFull` | +1 | all 3 images have alt text |
 | `links.productHealthyCount` | +1 | 10 product links (band: 2-10) |
+| **`links.hard4xx`** | **-4** | **6 link(s) returned 4xx (e.g. 404 for `https://www.andar.com/products/the-dog-collar`)** |
 | **`fmt.multipleH1`** | **-2** | **2 H1 headings (should be exactly 1) &mdash; real bug in the article's Conclusion section** |
 | `fmt.metaTitleOk` | +1 | Meta Title present (53 chars) |
 | `fmt.metaDescOk` | +1 | Meta Description present (144 chars) |
 
-Score: **−1** &rarr; escalate &rarr; AI: **reject** with reasoning *"Article has 3 private images, multiple H1 headings, and lacks coherent structure"* &rarr; final: **reject**. Total cost: **$0.000183** (1,125 tokens, 1 call).
+Score: **−5** &rarr; escalate &rarr; AI: **reject** with reasoning *"Private Drive images (3), six product links return 4xx, and there are multiple H1s. Fix broken links, make images public, and use a single H1."* &rarr; final: **reject**. Total cost: **$0.00116** (1,574 tokens, 1 call).
 
-The system caught a real formatting bug the writer made (the Conclusion section was wrongly styled with `<h1>` instead of `<h2>`) on the very document it was tested against.
+Three real bugs caught on the demo doc itself:
+- The Conclusion section was wrongly styled with `<h1>` instead of `<h2>` &mdash; the deterministic `fmt.multipleH1` rule fires.
+- All three Drive images are not publicly shared &mdash; the HEAD probe catches them as `private`.
+- Six product links return HTTP 404 &mdash; the link reachability probe catches them as `hard-4xx` with the exact URL surfaced in the audit panel.
 
 ## Configuration
 

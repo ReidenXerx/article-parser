@@ -29,6 +29,28 @@ function drivePill(permission: string) {
   );
 }
 
+function linkValidationPill(status: string) {
+  // OK + skipped + redirect = success-shaped (no alarm).
+  // hard-* + soft-404 + unreachable = problem-shaped (red/amber).
+  const cls =
+    status === 'ok'
+      ? 'bg-green-100 text-green-700'
+      : status === 'hard-4xx' || status === 'soft-404'
+        ? 'bg-red-100 text-red-700'
+        : status === 'hard-5xx' || status === 'unreachable'
+          ? 'bg-amber-100 text-amber-700'
+          : status === 'redirect'
+            ? 'bg-sky-100 text-sky-700'
+            : 'bg-slate-100 text-slate-500';
+  return (
+    <span
+      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 export default function AuditPanel({
   article,
 }: {
@@ -134,23 +156,37 @@ export default function AuditPanel({
         <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
           Links ({article.links.length})
         </div>
-        <ul className="mt-3 space-y-1 text-xs">
+        <ul className="mt-3 space-y-2 text-xs">
           {article.links.map((l, i) => (
-            <li key={i} className="flex items-center gap-2">
-              <span
-                className={`shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] ${
-                  l.classification === 'product'
-                    ? 'bg-brand-50 text-brand-700'
-                    : l.classification === 'brand'
-                      ? 'bg-purple-50 text-purple-700'
-                      : l.classification === 'image-placeholder'
-                        ? 'bg-slate-100 text-slate-500'
-                        : 'bg-slate-50 text-slate-500'
-                }`}
-              >
-                {l.classification}
-              </span>
-              <span className="truncate text-slate-700">{l.anchorText}</span>
+            <li key={i} className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`shrink-0 rounded-sm px-1.5 py-0.5 font-mono text-[10px] ${
+                    l.classification === 'product'
+                      ? 'bg-brand-50 text-brand-700'
+                      : l.classification === 'brand'
+                        ? 'bg-purple-50 text-purple-700'
+                        : l.classification === 'image-placeholder'
+                          ? 'bg-slate-100 text-slate-500'
+                          : 'bg-slate-50 text-slate-500'
+                  }`}
+                >
+                  {l.classification}
+                </span>
+                <span className="flex-1 truncate text-slate-700">
+                  {l.anchorText}
+                </span>
+                {l.validation ? linkValidationPill(l.validation.status) : null}
+              </div>
+              {l.validation &&
+              (l.validation.status === 'hard-4xx' ||
+                l.validation.status === 'hard-5xx' ||
+                l.validation.status === 'soft-404' ||
+                l.validation.status === 'unreachable') ? (
+                <div className="pl-2 text-[10px] text-slate-500">
+                  {l.validation.detail}
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

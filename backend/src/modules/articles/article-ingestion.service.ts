@@ -7,7 +7,9 @@ import { DriveService } from '../drive/drive.service';
 import {
   ExtractedArticle,
   ExtractedImage,
+  ExtractedLink,
 } from '../extractors/extracted-article.types';
+import { LinkValidationService } from '../link-validation/link-validation.service';
 import { BodyHtmlService } from '../extractors/body-html.service';
 import { FormattingAuditService } from '../extractors/formatting-audit.service';
 import { ImageInventoryService } from '../extractors/image-inventory.service';
@@ -64,6 +66,7 @@ export class ArticleIngestionService {
     private readonly articleRepo: Repository<Article>,
     private readonly googleDocs: GoogleDocsService,
     private readonly drive: DriveService,
+    private readonly linkValidation: LinkValidationService,
     private readonly metaFields: MetaFieldsService,
     private readonly bodyHtml: BodyHtmlService,
     private readonly imageInventory: ImageInventoryService,
@@ -112,8 +115,14 @@ export class ArticleIngestionService {
           }),
         ]);
 
-        this.logger.step('Drive permission check');
-        const enrichedImages = await this.driveCheckImages(imageResult.data);
+        // Drive + link reachability run in parallel — both are
+        // network-bound and independent, so we don't pay one's latency
+        // serially behind the other.
+        this.logger.step('Drive permission check + link reachability probe');
+        const [enrichedImages, enrichedLinks] = await Promise.all([
+          this.driveCheckImages(imageResult.data),
+          this.validateLinks(linkResult.data),
+        ]);
 
         // Assemble the canonical extracted article shape
         const extracted: ExtractedArticle = {
@@ -122,7 +131,7 @@ export class ArticleIngestionService {
           meta: metaResult.data,
           body: bodyResult.data,
           images: enrichedImages,
-          links: linkResult.data,
+          links: enrichedLinks,
           formatting: formattingResult.data,
         };
 
@@ -221,5 +230,84 @@ export class ArticleIngestionService {
     );
 
     return enriched;
+  }
+
+  /**
+   * Run the link reachability probe over every link and merge results
+   * back into the link objects. Like `driveCheckImages`, this is a
+   * network-bound step kept OUT of the extractor stage so extractors
+   * stay pure and parallelisable.
+   *
+   * Fail-open: if the validator is disabled (`LINK_VALIDATION_ENABLED=false`)
+   * or the batch throws, links keep their pre-validation shape and the
+   * `links.allReachable` / `links.hard*` rules quietly don't fire —
+   * the rest of the gate continues unblocked.
+   */
+  private async validateLinks(
+    links: ExtractedLink[],
+  ): Promise<ExtractedLink[]> {
+    if (links.length === 0) return links;
+    if (!this.linkValidation.isEnabled()) {
+      this.logger.decide(
+        'LINK-VALIDATE',
+        `${links.length} links`,
+        'skipped (LINK_VALIDATION_ENABLED=false)',
+      );
+      return links;
+    }
+
+    try {
+      const verdicts = await this.linkValidation.checkBatch(links);
+
+      let okCount = 0;
+      let hard4xxCount = 0;
+      let hard5xxCount = 0;
+      let soft404Count = 0;
+      let redirectCount = 0;
+      let unreachableCount = 0;
+      let skippedCount = 0;
+
+      const enriched = links.map((link, i) => {
+        const v = verdicts[i];
+        if (!v) return link;
+        switch (v.status) {
+          case 'ok':
+            okCount++;
+            break;
+          case 'hard-4xx':
+            hard4xxCount++;
+            break;
+          case 'hard-5xx':
+            hard5xxCount++;
+            break;
+          case 'soft-404':
+            soft404Count++;
+            break;
+          case 'redirect':
+            redirectCount++;
+            break;
+          case 'unreachable':
+            unreachableCount++;
+            break;
+          case 'skipped':
+            skippedCount++;
+            break;
+        }
+        return { ...link, validation: v };
+      });
+
+      this.logger.decide(
+        'LINK-VALIDATE',
+        `${links.length} links probed`,
+        `ok=${okCount}, hard-4xx=${hard4xxCount}, soft-404=${soft404Count}, hard-5xx=${hard5xxCount}, unreachable=${unreachableCount}, redirect=${redirectCount}, skipped=${skippedCount}`,
+      );
+
+      return enriched;
+    } catch (err) {
+      this.logger.warn(
+        `Link validation batch failed: ${(err as Error).message} — continuing without validation data`,
+      );
+      return links;
+    }
   }
 }

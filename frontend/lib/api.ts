@@ -78,6 +78,19 @@ export interface ArticleDetail {
       | 'internal'
       | 'external'
       | 'image-placeholder';
+    validation?: {
+      status:
+        | 'ok'
+        | 'hard-4xx'
+        | 'hard-5xx'
+        | 'soft-404'
+        | 'redirect'
+        | 'unreachable'
+        | 'skipped';
+      httpStatus?: number;
+      finalUrl?: string;
+      detail: string;
+    };
   }>;
   formatting: {
     h1Count: number;

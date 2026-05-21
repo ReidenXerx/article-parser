@@ -54,6 +54,44 @@ export interface ExtractedLink {
     | 'internal' // any other link on the client domain
     | 'external' // off-domain link
     | 'image-placeholder'; // "IMAGE N" Drive placeholder
+  /** Reachability verdict — populated by the LinkValidationService pass. */
+  validation?: LinkValidationVerdict;
+}
+
+/**
+ * Result of one link's reachability + content probe.
+ *
+ *   ok           — 2xx status, no soft-404 markers in title/h1, no
+ *                  suspicious redirect.
+ *   hard-4xx     — server returned 4xx (most common: 404).
+ *   hard-5xx     — server error. Often transient; rule weights it lighter.
+ *   soft-404     — 2xx status but the page is a "not found" template
+ *                  (title/h1 contains 404 markers, OR final URL
+ *                  redirected to the homepage / a known 404 path).
+ *   redirect     — followed a redirect that landed somewhere reasonable
+ *                  (informational; not a quality flag on its own).
+ *   unreachable  — network error / timeout / DNS / SSL. Fail-open: rule
+ *                  treats this as a warning, not a hard reject.
+ *   skipped      — the validator chose not to probe this URL (e.g.
+ *                  image-placeholder links — Drive handles those).
+ */
+export type LinkValidationStatus =
+  | 'ok'
+  | 'hard-4xx'
+  | 'hard-5xx'
+  | 'soft-404'
+  | 'redirect'
+  | 'unreachable'
+  | 'skipped';
+
+export interface LinkValidationVerdict {
+  status: LinkValidationStatus;
+  /** Final HTTP status seen (after redirects). */
+  httpStatus?: number;
+  /** Final URL after redirects (when different from the original). */
+  finalUrl?: string;
+  /** Human-readable detail surfaced in the audit panel + decision log. */
+  detail: string;
 }
 
 export interface ExtractedFormattingAudit {

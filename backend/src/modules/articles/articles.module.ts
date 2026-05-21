@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DriveModule } from '../drive/drive.module';
 import { ExtractorsModule } from '../extractors/extractors.module';
 import { GoogleDocsModule } from '../google-docs/google-docs.module';
+import { LinkValidationModule } from '../link-validation/link-validation.module';
 import { OpenAIModule } from '../openai/openai.module';
 import { QualityGateModule } from '../quality-gate/quality-gate.module';
 import { ArticleIngestionService } from './article-ingestion.service';
@@ -15,6 +16,7 @@ import { ImageRelevanceService } from './image-relevance.service';
     TypeOrmModule.forFeature([Article]),
     GoogleDocsModule,
     DriveModule,
+    LinkValidationModule,
     ExtractorsModule,
     QualityGateModule,
     OpenAIModule,

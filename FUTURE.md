@@ -94,8 +94,9 @@ Each entry includes a short rationale (why it'd be valuable) and a rough impleme
 **Effort:** ~2 hours.
 
 ### D3. Sitemap-aware product link validation
-**Plan:** on first ingest for a new client, fetch their sitemap; cache the set of valid product URLs. Add a rule `links.brokenProduct` that fires when a product link in the article isn't in the sitemap. Catches "I linked to a URL that doesn't exist on the live site" mistakes.
-**Effort:** ~5 hours.
+**Today:** the `LinkValidationService` already catches broken URLs (hard 4xx, soft 404, redirect-to-home, unreachable) by probing every link at ingest time &mdash; that's the bulk of the value here.
+**Plan (additive):** on first ingest for a new client, fetch + cache their sitemap. Add an `links.notInSitemap` rule that fires when a product link returned 200 but isn't in the sitemap (catches "page exists but is unlisted" cases &mdash; e.g. a draft product). Lighter weight than `links.hard4xx`; informational.
+**Effort:** ~3 hours.
 
 ### D4. Table-of-contents extraction + injection
 **Plan:** an extractor that builds a TOC from the heading outline. The publisher optionally injects it after the first paragraph in WordPress.

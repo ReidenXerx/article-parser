@@ -1,5 +1,6 @@
 import { formattingRules } from './rules/formatting.rules';
 import { imageRules } from './rules/image.rules';
+import { linkReachabilityRules } from './rules/link-reachability.rules';
 import { linkRules } from './rules/link.rules';
 import {
   AssessmentInput,
@@ -23,7 +24,12 @@ import {
  * DB calls, which keeps the scorer fully unit-testable in isolation.
  */
 
-const ALL_RULES: Rule[] = [...imageRules, ...linkRules, ...formattingRules];
+const ALL_RULES: Rule[] = [
+  ...imageRules,
+  ...linkRules,
+  ...linkReachabilityRules,
+  ...formattingRules,
+];
 
 export function assessArticleQuality(
   input: AssessmentInput,

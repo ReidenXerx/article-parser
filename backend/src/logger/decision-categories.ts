@@ -31,6 +31,9 @@ export type DecisionCategory =
   | 'DRIVE-PARSE'
   | 'DRIVE-PERM'
 
+  // Link reachability
+  | 'LINK-VALIDATE'
+
   // Quality gate
   | 'QUALITY-RULE'
   | 'QUALITY-VERDICT'
